@@ -22,6 +22,17 @@ enum test_op {
 };
 
 
+void insert_or_increment(std::map<uint_fast32_t, int32_t> & pos_map, int32_t rpos) {
+    auto it = pos_map.find(rpos);
+    if (it != pos_map.end()) {
+        ++(it->second);
+    }
+    else {
+        pos_map.insert(std::pair(rpos, 1));
+    }
+}
+
+
 int main(int argc, char *argv[])
 {
 
@@ -33,6 +44,7 @@ int main(int argc, char *argv[])
     char modew[800];
     int exit_code = 0;
     int coverage_limit = 100;
+    char* out_name = "-";
 
     int c;  // for parsing input arguments
 
@@ -40,14 +52,22 @@ int main(int argc, char *argv[])
     // add option to run strand specificlly 
     // add option for BAM index loading (+ generation if needed) to be able to run each chromosome on a seperate thread
 
-    while ((c = getopt(argc, argv, "DSIt:i:bCul:o:N:BZ:@:M")) >= 0) {
+    // while ((c = getopt(argc, argv, "DSIt:i:bCul:o:N:BZ:@:M")) >= 0) {
+    while ((c = getopt(argc, argv, "c:o:")) >= 0) {
         switch(c) {
-        case 'D': ; break;
-        case 'S': ; break;
+        // case 'b': ; break;
+        case 'c': coverage_limit = atoi(optarg); break;
+        case 'o': out_name = optarg; break;
         }
     }
 
-    if (argc == optind) {
+    if (argc == optind) {  // missing input file, print help
+        fprintf(stderr, "Usage: sift_bam_max_cov [-c value] <in.bam>|<in.bam>\n");
+        fprintf(stderr, "\n");
+        fprintf(stderr, "-c: Max coverage value.\n");
+        fprintf(stderr, "-o: Output file name. Default is to stdout.\n");
+        fprintf(stderr, "File to process.\n");
+        fprintf(stderr, "\n");
         return (1);
     }
 
@@ -73,7 +93,7 @@ int main(int argc, char *argv[])
     if (flag & WRITE_CRAM) strcat(modew, "c");
     else if (flag & WRITE_COMPRESSED) strcat(modew, "b");
     else if (flag & WRITE_UNCOMPRESSED) strcat(modew, "bu");
-    out = hts_open("-", modew);
+    out = hts_open(out_name, modew);
     if (out == NULL) {
         fprintf(stderr, "Error opening standard output\n");
         return EXIT_FAILURE;
@@ -85,13 +105,14 @@ int main(int argc, char *argv[])
     }
 
 
-    // map for start/end positions of alignments
-    std::map<uint_fast32_t, int> starts;
-    std::map<uint_fast32_t, int> ends;
+    // map for start/end positions of alignments that are already selected
+    std::map<uint_fast32_t, int32_t> starts;
+    std::map<uint_fast32_t, int32_t> ends;
 
     // keep a set of mate reads we decided to keep when encountering the first read
     // std::unordered_set<std::string>
-    std::set<std::pair<std::string, int32_t>> mates_to_keep = std::set<std::pair<std::string, int32_t>>();
+    // std::set<std::pair<std::string, int32_t>> mates_to_keep = std::set<std::pair<std::string, int32_t>>();
+    std::set<std::string> mates_to_keep[input_header->n_targets];
 
     bam1_t *aln = bam_init1(); //initialize an alignment
     int32_t current_rname_index; // index compared to header: input_header->target_name[current_rname_index]
@@ -107,8 +128,18 @@ int main(int argc, char *argv[])
             starts.clear();
             // ends = std::map<uint_fast32_t, int>();
             ends.clear();
-            mates_to_keep.clear();
+            // mates_to_keep.clear();
+
+            current_rname_index = aln->core.tid;
         }
+
+        // make sure the read is mapped
+        if ((aln->core.flag & BAM_FUNMAP) != 0)
+            continue;
+
+        // make sure the alignment is not a secondary alignment or a supplementary alignment
+        if ((aln->core.flag & BAM_FSECONDARY) != 0 or (aln->core.flag & BAM_FSUPPLEMENTARY) != 0)
+            continue;
 
         if (current_pos != aln->core.pos) { // left most position, does NOT need adjustment for reverse strand if summing their coverage
             // while((aln->core.pos > starts.begin()->first) && (aln->core.pos > ends.begin()->first)) {
@@ -146,32 +177,22 @@ int main(int argc, char *argv[])
             }
         }
 
-        if (current_coverage < coverage_limit) {
+        // if we are below the max coverage or the read has already been selected to keep through its pair
+        if ((current_coverage < coverage_limit) || 
+            (mates_to_keep[aln->core.tid].find(bam_get_qname(aln)) != mates_to_keep[aln->core.tid].end())) {
             // get cigar
             uint32_t *cigar = bam_get_cigar(aln);
 
-            int rpos = aln->core.pos;  // update position on the ref with cigar
+            int32_t rpos = aln->core.pos;  // update position on the ref with cigar
             for (int k = 0; k < aln->core.n_cigar; ++k) {
 
-                if ((bam_cigar_type(bam_cigar_op(cigar[k]))&2)) {
+                if ((bam_cigar_type(bam_cigar_op(cigar[k]))&2)) {  // consumes reference
                     if (bam_cigar_op(cigar[k]) == BAM_CREF_SKIP) {
-                        auto it = ends.find(rpos);
-                        if (it != ends.end()) {
-                            ++(it->second);
-                        }
-                        else {
-                            ends.insert(std::pair(rpos, 1));
-                        }
+                        insert_or_increment(ends, rpos);
 
                         rpos += bam_cigar_oplen(cigar[k]);
 
-                        auto it = starts.find(rpos);
-                        if (it != starts.end()) {
-                            ++(it->second);
-                        }
-                        else {
-                            starts.insert(std::pair(rpos, 1));
-                        }
+                        insert_or_increment(starts, rpos);
 
                     }
                     else {
@@ -180,29 +201,39 @@ int main(int argc, char *argv[])
                 }
             }
 
-            // make function insert_or_increment with these lines as repeated 3 times for start/end/end
-            auto it = ends.find(rpos);
-            if (it != ends.end()) {
-                ++(it->second);
-            }
-            else {
-                ends.insert(std::pair(rpos, 1));
-            }
-
-            // add start points 2 and above to starts map if any
-
-            // add all end points to ends map
-
+            insert_or_increment(ends, rpos);
             ++current_coverage;
+
+            // TODO save pair mate
+            // store just qname in a set, sets are per target id
+            mates_to_keep[aln->core.tid].insert(bam_get_qname(aln));
+            
+            // TODO output the alignment
+            if (sam_write1(out, input_header, aln) == -1) {
+                fprintf(stderr, "Could not write selected record \"%s\"\n", bam_get_qname(aln));
+                return EXIT_FAILURE;
+            }
+
         }
-
-
 
         // if (aln->flag & BAM_FREVERSE) { // if reverse strand aln
         // }
-
-        // aln->data->    
-
+        // aln->data->
     }
 
+    int ret;
+    
+    ret = hts_close(in);
+    if (ret < 0) {
+        fprintf(stderr, "Error closing input.\n");
+        exit_code = EXIT_FAILURE;
+    }
+
+    ret = hts_close(out);
+    if (ret < 0) {
+        fprintf(stderr, "Error closing output.\n");
+        exit_code = EXIT_FAILURE;
+    }
+
+    return 0;
 }
