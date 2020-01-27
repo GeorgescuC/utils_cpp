@@ -22,13 +22,13 @@ enum test_op {
 };
 
 
-void insert_or_increment(std::map<uint_fast32_t, int32_t> & pos_map, int32_t rpos) {
+void insert_or_increment(std::map<int32_t, int32_t> & pos_map, int32_t rpos) {
     auto it = pos_map.find(rpos);
     if (it != pos_map.end()) {
         ++(it->second);
     }
     else {
-        pos_map.insert(std::pair(rpos, 1));
+        pos_map.insert(std::pair<int32_t, int32_t>(rpos, 1));
     }
 }
 
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     char modew[800];
     int exit_code = 0;
     int coverage_limit = 100;
-    char* out_name = "-";
+    const char *out_name = "-";
 
     int c;  // for parsing input arguments
 
@@ -74,6 +74,8 @@ int main(int argc, char *argv[])
     in = sam_open(argv[optind], "r");
 
 
+    const htsFormat *in_format = hts_get_format(in);
+
     // Enable multi-threading (only effective when the library was compiled with -DBGZF_MT)
     // bgzf_mt(in, n_threads, 0);
 
@@ -93,7 +95,9 @@ int main(int argc, char *argv[])
     if (flag & WRITE_CRAM) strcat(modew, "c");
     else if (flag & WRITE_COMPRESSED) strcat(modew, "b");
     else if (flag & WRITE_UNCOMPRESSED) strcat(modew, "bu");
-    out = hts_open(out_name, modew);
+
+    // out = hts_open(out_name, modew);
+    out = hts_open_format(out_name, modew, in_format);
     if (out == NULL) {
         fprintf(stderr, "Error opening standard output\n");
         return EXIT_FAILURE;
@@ -106,8 +110,10 @@ int main(int argc, char *argv[])
 
 
     // map for start/end positions of alignments that are already selected
-    std::map<uint_fast32_t, int32_t> starts;
-    std::map<uint_fast32_t, int32_t> ends;
+    // std::map<uint_fast32_t, int32_t> starts;
+    // std::map<uint_fast32_t, int32_t> ends;
+    std::map<int32_t, int32_t> starts;
+    std::map<int32_t, int32_t> ends;
 
     // keep a set of mate reads we decided to keep when encountering the first read
     // std::unordered_set<std::string>
@@ -116,8 +122,9 @@ int main(int argc, char *argv[])
 
     bam1_t *aln = bam_init1(); //initialize an alignment
     int32_t current_rname_index; // index compared to header: input_header->target_name[current_rname_index]
-    uint_fast32_t current_coverage = 0;
-    uint_fast32_t current_pos = 0;
+    int32_t current_coverage = 0;
+    // uint_fast32_t current_pos = 0;
+    int32_t current_pos = 0;
 
     while(sam_read1(in, input_header, aln) > 0) {
 
@@ -165,7 +172,7 @@ int main(int argc, char *argv[])
                 starts.erase(starts.begin(), it);
             }
 
-            auto it = ends.begin();
+            it = ends.begin();
             if (it->first <= aln->core.pos) {
                 for (; it != ends.end(); ++it) {
                     if (it->first <= aln->core.pos) { // or equal because already selected reads take priority in coverage
@@ -184,7 +191,7 @@ int main(int argc, char *argv[])
             uint32_t *cigar = bam_get_cigar(aln);
 
             int32_t rpos = aln->core.pos;  // update position on the ref with cigar
-            for (int k = 0; k < aln->core.n_cigar; ++k) {
+            for (uint32_t k = 0; k < aln->core.n_cigar; ++k) {
 
                 if ((bam_cigar_type(bam_cigar_op(cigar[k]))&2)) {  // consumes reference
                     if (bam_cigar_op(cigar[k]) == BAM_CREF_SKIP) {
@@ -235,5 +242,5 @@ int main(int argc, char *argv[])
         exit_code = EXIT_FAILURE;
     }
 
-    return 0;
+    return exit_code;
 }
