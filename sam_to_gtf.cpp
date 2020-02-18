@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
         out <<
                 bam_get_qname(aln) << "\t" << aln->core.l_qseq << "\t" <<
                 similar_length << "\t" << similarity_proportion_gap_compressed << "\t" << similarity_proportion_blast << "\t" << similarity_proportion_blast_with_soft_clipping << "\t" <<
-                identical_length << "\t" << identical_proportion_nogaps << "\t" << df_prop << "\t" << identical_proportion_gap_compressed << "\t" << identical_proportion_blast << "\t" << identical_proportion_with_soft_clipping << "\t" <<
+                identical_length << "\t" << identical_proportion_nogaps << "\t" << identical_proportion_gap_compressed << "\t" << identical_proportion_blast << "\t" << identical_proportion_with_soft_clipping << "\t" <<
                 n_insertions << "\t" << insertion_length << "\t" << insertion_gap_rate << "\t" << insertion_proportion_blast << "\t" <<
                 n_deletions << "\t" << deletion_length << "\t" << deletion_gap_rate << "\t" << deletion_proportion_blast << "\t" <<
                 soft_clip_length << "\t" << proportion_soft_clip << "\t" <<
