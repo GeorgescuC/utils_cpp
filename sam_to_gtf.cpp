@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
             "soft_clip_length" << "\t" << "proportion_soft_clip" <<
             std::endl;
 
-    while(sam_read1(in, input_header, aln) > 0) {
+    while(sam_read1(in, input_header, aln) >= 0) {
 
         // make sure the read is mapped
         if ((aln->core.flag & BAM_FUNMAP) != 0)
@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
         int_fast64_t total_length = similar_length + insertion_length + deletion_length + soft_clip_length;
         int_fast64_t clipless_total_length = similar_length + insertion_length + deletion_length;
         int_fast64_t identical_length = similar_length - nm_length + insertion_length + deletion_length;
-        int_fast64_t gap_compressed_length = n_insertions + n_deletions;
+        int_fast64_t gap_compressed_length = similar_length + n_insertions + n_deletions;
 
 
         float similarity_proportion_gap_compressed = (float)(similar_length + n_insertions + n_deletions) / gap_compressed_length;
@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
         average_similarity_proportion_blast_with_soft_clipping += similarity_proportion_blast_with_soft_clipping;
         float identical_proportion_nogaps = (float)identical_length / similar_length;
         average_identical_proportion_nogaps += identical_proportion_nogaps;
-        float identical_proportion_gap_compressed = (float)identical_length / clipless_total_length;
+        float identical_proportion_gap_compressed = (float)identical_length / gap_compressed_length;
         average_identical_proportion_gap_compressed += identical_proportion_gap_compressed;
         float identical_proportion_blast = (float)identical_length / clipless_total_length;
         average_identical_proportion_blast += identical_proportion_blast;
