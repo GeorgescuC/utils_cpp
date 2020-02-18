@@ -143,11 +143,11 @@ int main(int argc, char *argv[])
         //     ++missing_nm_i;
         // }
 
-        float df_prop = -1.0f;
-        uint8_t *df_tag = bam_aux_get(aln, "df");
-        if (df_tag != NULL) {
-            df_prop = bam_aux2f(df_tag);
-        }
+        // float df_prop = -1.0f;
+        // uint8_t *df_tag = bam_aux_get(aln, "df");
+        // if (df_tag != NULL) {
+        //     df_prop = bam_aux2f(df_tag);
+        // }
 
         int_fast64_t total_length = similar_length + insertion_length + deletion_length + soft_clip_length;
         int_fast64_t clipless_total_length = similar_length + insertion_length + deletion_length;
