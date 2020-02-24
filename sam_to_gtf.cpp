@@ -155,9 +155,9 @@ int main(int argc, char *argv[])
         int_fast64_t gap_compressed_length = similar_length + n_insertions + n_deletions;
 
 
-        float similarity_proportion_gap_compressed = (float)(similar_length + n_insertions + n_deletions) / gap_compressed_length;
+        float similarity_proportion_gap_compressed = (float)similar_length / gap_compressed_length;
         average_similarity_proportion_gap_compressed += similarity_proportion_gap_compressed;
-        float similarity_proportion_blast = ((float)similar_length) / clipless_total_length;
+        float similarity_proportion_blast = (float)similar_length / clipless_total_length;
         average_similarity_proportion_blast += similarity_proportion_blast;
         float similarity_proportion_blast_with_soft_clipping = ((float)similar_length) / total_length;
         average_similarity_proportion_blast_with_soft_clipping += similarity_proportion_blast_with_soft_clipping;
